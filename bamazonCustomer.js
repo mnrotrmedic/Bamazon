@@ -12,82 +12,74 @@ var connection = mysql.createConnection({ //Create connection to mySql Database
 
 connection.connect(function (err) { //Connection function
     if (err) throw err;
-    runBamazon();
+    bamBuy();
 });
 
-function runBamazon() { //Read database and close the connection before calling prompt for further action (enquirer)
-    connection.query("SELECT * FROM products", function (err, res) {
-        console.table(res);
-        bamBuy();
-    })
-};
-
 function bamBuy() { //Function to call Enquirer to figure out what to do next
-    inquirer.prompt([
-        {
-            name: "bamItem",
-            type: "number",
-            message: "What 'product' would you like to buy?",
-            validate: function (value) {
-                if (isNaN(value) === false) {
-                    return true;
+    connection.query("SELECT * FROM products", function (err, res) {
+        if (err) throw err;
+        console.table(res);
+        inquirer.prompt([
+            {
+                name: "bamItem",
+                type: "number",
+                message: "What 'product' would you like to buy?",
+                validate: function (value) {
+                    if (isNaN(value) === false) {
+                        return true;
+                    }
+                    return false;
                 }
-                return false;
+            },
+            {
+                name: "howMuch",
+                type: "number",
+                message: "How much would you like to buy?",
+                validate: function (value) {
+                    if (isNaN(value) === false) {
+                        return true;
+                    }
+                    return false;
+                }
             }
-        },
-        {
-            name: "howMuch",
-            type: "number",
-            message: "How much would you like to buy?",
-            validate: function (value) {
-                if (isNaN(value) === false) {
-                    return true;
-                }
-                return false;
-            }
-        }
-    ]).then(function (item) {
-        var selection = parseInt(item.bamItem);
-        var quantity = parseInt(item.howMuch);
+        ]).then(function (item) {
+            var selection = parseInt(item.bamItem);
+            var quantity = parseInt(item.howMuch);
+            connection.query("SELECT * FROM products WHERE ?",
+                [
+                    {
+                        id: selection
+                    }
+                ],
+                function (err, res) {
+                    if (err) throw err;
 
-        connection.query("SELECT * FROM products WHERE ?",
-            [
-                {
-                    id: selection
-                }
-            ],
-            function (err, res) {
-                if (err) throw err;
+                    console.log("\nYou want " + quantity + " " + res[0].product_name);
 
-                console.log("\nYou want " + quantity + " " + res[0].product_name);
-
-                if (quantity > res[0].stock_quantity) {
-                    console.log("I only have " + res[0].stock_quantity + " of " + res[0].product_name + "\n");
-                    buyMore();
-                } else {
-                    var currentStock = (res[0].stock_quantity - quantity);
-                    var total = (parseInt(quantity * res[0].price));
-                    console.log("That'll be $ " + total);
-                    // var total = (quantity * )
-                    connection.query("UPDATE products SET ? WHERE ?",
-                        [
-                            {
-                                stock_quantity: currentStock
-                            },
-                            {
-                                id: selection
+                    if (quantity > res[0].stock_quantity) {
+                        console.log("I only have " + res[0].stock_quantity + " of " + res[0].product_name + "\n");
+                        buyMore();
+                    } else {
+                        var currentStock = (res[0].stock_quantity - quantity);
+                        var total = (parseInt(quantity * res[0].price));
+                        console.log("That'll be $ " + total);
+                        // var total = (quantity * )
+                        connection.query("UPDATE products SET ? WHERE ?",
+                            [
+                                {
+                                    stock_quantity: currentStock
+                                },
+                                {
+                                    id: selection
+                                }
+                            ],
+                            function (err, res) {
+                                buyMore();
                             }
-                        ],
-                        function (err, res) {
-                            buyMore();
-                        }
-                    )
-                }
-            })
-
-
-
-
+                        )
+                    }
+                })
+        })
     })
 }
 
@@ -105,7 +97,7 @@ function buyMore() {
                 bamBuy(); //Calls initial Inquirer questions again
             }
             else {
-                console.log("Peace!")
+                console.log("\nPeace!")
                 connection.end();
             }
         });
